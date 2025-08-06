@@ -1,0 +1,5 @@
+---
+#Variables para Linux
+
+ansible_user: sysadmin
+
