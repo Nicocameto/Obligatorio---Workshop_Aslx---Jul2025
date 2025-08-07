@@ -1,0 +1,58 @@
+---
+- hosts: centos
+  become: yes
+  gather_facts: no
+
+
+  tasks:
+
+
+  - name: Asegurandose que el paquete nfs-utils esta instalado en el servidor.
+    ansible.builtin.dnf:
+      name: nfs-utils
+      state: present
+
+
+  - name: Asegurandose que el servicio nfs este habilitado y en funcionamiento.
+    ansible.builtin.service:
+      name: nfs-server
+      enabled: yes
+      state: started
+
+
+  - name: Habilitar servicio nfs en Firewalld.
+    ansible.posix.firewalld:
+      service: nfs
+      state: enabled
+      permanent: true
+      immediate: true
+      offline: true
+
+
+  - name: Verificando la existencia del directorio /var/nfs_shared.
+    ansible.builtin.file:
+      path: /var/nfs_shared
+      state: directory
+      owner: nobody
+      group: nobody
+      mode: '0777'
+
+
+  - name: Agregando directorio a /etc/exports.
+    ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: "/var/nfs_shared *(rw,root_squash)" 
+        state: present
+    notify: Reinicio del servicio nfs-server 
+    
+
+
+  handlers:
+    - name: Reinicio del servicio nfs-server
+      service: 
+        name: nfs-server
+        state: restarted
+
+
+
+...
