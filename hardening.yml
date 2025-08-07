@@ -1,0 +1,80 @@
+---
+- hosts: ubuntu
+  become: yes
+  gather_facts: no
+
+
+  tasks:
+
+
+  - name: Actualizar todos los paquetes en el servidor
+    ansible.builtin.apt:
+            update_cache: true
+            cache_valid_time: 3600
+            name: "*"
+            state: latest
+    notify: Reiniciar el servidor
+
+
+  - name: Habilitar ufw y permitir trafico ssh 
+    community.general.ufw:
+      state: enabled
+      rule: allow
+      port: ssh
+      proto: tcp
+
+
+  - name: Denegar todas las conexiones entrantes
+    community.general.ufw:
+      policy: deny
+      direction: incoming
+
+
+  - name: Aplico medidas de seguridad a SSH
+    ansible.builtin.lineinfile:
+      path: /etc/ssh/sshd_config
+      regexp: "{{ item.buscar }}"
+      line: "{{ item.reemplazo }}"
+    loop:
+      - {buscar: '#PermitRootLogin ', reemplazo: 'PermitRootLogin no' }
+      - {buscar: '#AuthenticationMethods ', reemplazo: 'AuthenticationMethods publickey' }
+      - {buscar: '#PubkeyAuthentication ', reemplazo: 'PubkeyAuthentication  yes' }
+    notify: Reinicio de SSH
+
+
+  - name: Instalando Fail2Ban en el servidor
+    ansible.builtin.apt:
+      name: fail2ban
+      state: present
+
+
+  - name: Copia del archivo de configuracion jail.local personalizado
+    ansible.builtin.copy:
+      src: ./files/jail.local
+      dest: /etc/fail2ban/jail.local
+    notify: Reiniciar Fail2ban
+
+
+  - name: Aseguradose que el servicio Fail2ban esta habilitado y en funcionamiento
+    service:
+      name: fail2ban
+      enabled: yes
+      state: started
+
+  handlers:
+    - name: Reiniciar el servidor
+      ansible.builtin.reboot:
+        msg: "Un momento reiniciando el servidor"
+
+    - name: Reinicio de SSH
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Reiniciar Fail2ban
+      service:
+        name: fail2ban
+        state: restarted
+
+
+...
